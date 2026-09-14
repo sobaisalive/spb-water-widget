@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a1f2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Вода СПб">
+<title>Акватория СПб — вода, ветер, температура</title>
+<style>
+  :root{
+    --bg1:#061626; --bg2:#0d3056; --bg3:#155a8c;
+    --card:rgba(10,31,46,.72);
+    --stroke:rgba(255,255,255,.12);
+    --txt:#eaf6ff; --muted:#9cc0d8; --dim:#6f93a8;
+    --safe:#34d399; --warn:#fbbf24; --danger:#f87171; --unknown:#94a3b8;
+    --accent:#38bdf8; --accent2:#0ea5e9; --warm:#fb923c;
+    --shadow:0 18px 50px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Manrope,Onest,system-ui,sans-serif;
+    color:var(--txt);
+    min-height:100vh;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(56,189,248,.18), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(14,165,233,.16), transparent 60%),
+      linear-gradient(160deg,var(--bg1) 0%,var(--bg2) 55%,var(--bg3) 100%);
+    display:flex;align-items:center;justify-content:center;
+    padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));
+  }
+  .widget{
+    width:100%;max-width:380px;
+    background:var(--card);
+    border:1px solid var(--stroke);
+    border-radius:28px;
+    box-shadow:var(--shadow);
+    backdrop-filter:blur(14px) saturate(1.2);
+    -webkit-backdrop-filter:blur(14px) saturate(1.2);
+    overflow:hidden;
+    position:relative;
+  }
+  .widget::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(rgba(255,255,255,.06) 1px,transparent 1px);
+    background-size:24px 24px;mask:radial-gradient(ellipse 80% 60% at 50% 35%,#000,transparent 75%);
+    -webkit-mask:radial-gradient(ellipse 80% 60% at 50% 35%,#000,transparent 75%);
+  }
+  /* header */
+  .head{display:flex;align-items:center;gap:8px;padding:18px 20px 12px;position:relative}
+  .head .title{display:flex;flex-direction:column;line-height:1.15}
+  .head h1{font-size:15px;font-weight:700;letter-spacing:.2px}
+  .head .sub{font-size:11px;color:var(--muted);font-weight:500}
+  .head .badge{font-size:10px;color:var(--dim);margin-top:1px;display:flex;align-items:center;gap:5px}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--safe);box-shadow:0 0 8px var(--safe);animation:pulse 2s infinite}
+  .live-dot.off{background:var(--unknown);box-shadow:none;animation:none}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .spacer{flex:1}
+  .icon-btn{
+    width:34px;height:34px;border-radius:50%;border:1px solid var(--stroke);
+    background:rgba(255,255,255,.05);color:var(--muted);cursor:pointer;
+    display:grid;place-items:center;transition:.2s;
+  }
+  .icon-btn:hover{background:rgba(255,255,255,.1);color:var(--txt)}
+  .icon-btn svg{width:16px;height:16px}
+  .spin svg{animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* body */
+  .body{display:grid;grid-template-columns:1fr 1px 1fr;padding:6px 14px 10px;position:relative}
+  .divider{background:var(--stroke);margin:6px 0}
+  .col{padding:8px 10px;display:flex;flex-direction:column;align-items:center;text-align:center}
+  .col .label{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);font-weight:600}
+
+  /* compass */
+  .compass{position:relative;width:128px;height:128px;margin:8px 0 4px}
+  .compass svg{width:100%;height:100%;display:block}
+  .wd-wrap{display:flex;align-items:baseline;gap:5px;margin-top:6px}
+  .wd-val{font-size:26px;font-weight:800;letter-spacing:-.5px}
+  .wd-unit{font-size:12px;color:var(--muted);font-weight:600}
+  .wd-from{font-size:12px;color:var(--accent);font-weight:700;letter-spacing:.3px}
+  .wd-gust{font-size:11px;color:var(--dim);margin-top:3px}
+
+  /* water gauge */
+  .gauge{display:flex;align-items:flex-end;gap:12px;margin:6px 0}
+  .tube{position:relative;width:20px;height:150px;border-radius:10px;background:rgba(255,255,255,.07);border:1px solid var(--stroke);overflow:hidden}
+  .tube .fill{position:absolute;left:0;right:0;bottom:0;border-radius:8px;background:linear-gradient(0deg,var(--c),color-mix(in srgb,var(--c) 60%,#fff));transition:height .8s cubic-bezier(.2,.8,.2,1),background .4s;box-shadow:0 0 16px color-mix(in srgb,var(--c) 70%,transparent)}
+  .tube .wave{position:absolute;left:0;right:0;top:-4px;height:8px;border-radius:50%;background:color-mix(in srgb,var(--c) 80%,#fff);opacity:.6}
+  .marks{display:flex;flex-direction:column;justify-content:space-between;height:150px;font-size:9px;color:var(--dim);padding:2px 0}
+  .marks span{position:relative}
+  .marks span::before{content:"";position:absolute;left:-6px;top:50%;width:5px;height:1px;background:var(--dim)}
+  .water-val{font-size:26px;font-weight:800;letter-spacing:-.5px;margin-top:6px}
+  .water-unit{font-size:12px;color:var(--muted);font-weight:600}
+  .water-status{font-size:12px;font-weight:700;margin-top:3px;color:var(--c)}
+  .water-station{font-size:10px;color:var(--dim);margin-top:3px;line-height:1.3}
+
+  /* chips row */
+  .chips{display:flex;gap:8px;padding:6px 16px 14px;flex-wrap:wrap}
+  .chip{
+    flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;
+    padding:9px 10px;border-radius:14px;border:1px solid var(--stroke);
+    background:rgba(255,255,255,.05);font-size:12px;font-weight:600;color:var(--muted);
+    cursor:pointer;transition:.2s;text-decoration:none;line-height:1.2;
+  }
+  .chip:hover{background:rgba(255,255,255,.1);color:var(--txt)}
+  .chip .ico{font-size:15px;line-height:1}
+  .chip .v{color:var(--txt);font-weight:800}
+  .chip.elagin{border-color:color-mix(in srgb,var(--safe) 50%,transparent);background:color-mix(in srgb,var(--safe) 14%,transparent)}
+  .chip.elagin .ico{color:var(--safe)}
+  .chip.temp{border-color:color-mix(in srgb,var(--warm) 40%,transparent)}
+  .chip.temp .ico{color:var(--warm)}
+
+  /* footer */
+  .foot{display:flex;align-items:center;gap:8px;padding:10px 20px 16px;border-top:1px solid var(--stroke);font-size:10px;color:var(--dim);position:relative}
+  .foot a{color:var(--muted);text-decoration:none}
+  .foot a:hover{color:var(--txt)}
+  .foot .src{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .foot .age{color:var(--muted);font-weight:600}
+
+  /* modal (settings) */
+  .modal{position:absolute;inset:0;z-index:5;display:none;align-items:flex-end;background:rgba(0,0,0,.5);backdrop-filter:blur(4px)}
+  .modal.show{display:flex}
+  .sheet{
+    width:100%;background:linear-gradient(180deg,#0d2940,#08192a);
+    border:1px solid var(--stroke);border-bottom:none;border-radius:22px 22px 0 0;
+    padding:18px 20px calc(18px + env(safe-area-inset-bottom));max-height:90%;overflow:auto;
+  }
+  .sheet h2{font-size:14px;margin-bottom:4px}
+  .sheet p{font-size:12px;color:var(--muted);line-height:1.5;margin:8px 0 12px}
+  .sheet label{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+  .sheet input{width:100%;margin:6px 0 14px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid var(--stroke);color:var(--txt);font-size:13px;font-family:inherit}
+  .sheet input:focus{outline:none;border-color:var(--accent)}
+  .row{display:flex;gap:10px}
+  .btn{flex:1;padding:12px;border-radius:12px;border:1px solid var(--stroke);background:rgba(255,255,255,.05);color:var(--txt);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;box-shadow:0 8px 22px rgba(56,189,248,.3)}
+  .hint{font-size:10px;color:var(--dim);line-height:1.5;margin-top:10px}
+  .hint code{color:var(--muted)}
+
+  /* elagin iframe modal */
+  .elagin-modal{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;background:rgba(0,0,0,.6);backdrop-filter:blur(6px)}
+  .elagin-modal.show{display:flex}
+  .elagin-bar{display:flex;align-items:center;gap:10px;padding:max(12px,env(safe-area-inset-top)) 14px 10px;color:var(--txt);background:#061626;border-bottom:1px solid var(--stroke)}
+  .elagin-bar .t{font-size:13px;font-weight:700;flex:1}
+  .elagin-bar .sub{font-size:10px;color:var(--dim);font-weight:500}
+  .elagin-frame{flex:1;border:none;background:#fff;width:100%}
+  .elagin-note{padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:#061626;color:var(--dim);font-size:10px;line-height:1.4;border-top:1px solid var(--stroke)}
+
+  @media (max-width:360px){
+    .compass{width:108px;height:108px}
+    .tube{height:128px}.marks{height:128px}
+    .wd-val,.water-val{font-size:23px}
+    .chips{padding:6px 12px 12px}
+  }
+  @media (prefers-color-scheme:light){
+    :root{--bg1:#cfe3f0;--bg2:#9cc4e0;--bg3:#5f93bd;--card:rgba(255,255,255,.62);--txt:#0b2233;--muted:#3d5e74;--dim:#6b8497}
+    .icon-btn{background:rgba(0,0,0,.04)}
+  }
+</style>
+</head>
+<body>
+  <div class="widget" id="widget">
+    <!-- header -->
+    <div class="head">
+      <div class="title">
+        <h1>Акватория Санкт-Петербурга</h1>
+        <span class="sub">Невская губа · Нева · центр города</span>
+        <span class="badge"><span class="live-dot" id="liveDot"></span><span id="liveText">получение данных…</span></span>
+      </div>
+      <div class="spacer"></div>
+      <button class="icon-btn" id="settingsBtn" title="Настройки" aria-label="Настройки">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <button class="icon-btn" id="refreshBtn" title="Обновить" aria-label="Обновить">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+    </div>
+
+    <!-- body -->
+    <div class="body">
+      <!-- wind -->
+      <div class="col" id="windCol">
+        <div class="label">Ветер</div>
+        <div class="compass">
+          <svg viewBox="0 0 128 128" id="compassSvg">
+            <defs>
+              <linearGradient id="arrGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#7dd3fc"/>
+                <stop offset="1" stop-color="#0ea5e9"/>
+              </linearGradient>
+            </defs>
+            <circle cx="64" cy="64" r="58" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.14)"/>
+            <circle cx="64" cy="64" r="46" fill="none" stroke="rgba(255,255,255,.06)"/>
+            <g id="ticks"></g>
+            <text x="64" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="#9cc0d8">С</text>
+            <text x="64" y="120" text-anchor="middle" font-size="11" font-weight="700" fill="#6f93a8">Ю</text>
+            <text x="118" y="68" text-anchor="middle" font-size="11" font-weight="700" fill="#6f93a8">В</text>
+            <text x="10" y="68" text-anchor="middle" font-size="11" font-weight="700" fill="#6f93a8">З</text>
+            <g id="arrow" transform="rotate(0 64 64)">
+              <path d="M64 24 L57 66 L64 60 L71 66 Z" fill="url(#arrGrad)" stroke="rgba(255,255,255,.4)" stroke-width="1"/>
+              <line x1="64" y1="60" x2="64" y2="104" stroke="rgba(125,211,252,.5)" stroke-width="2" stroke-dasharray="3 3"/>
+            </g>
+            <circle cx="64" cy="64" r="4" fill="#eaf6ff"/>
+          </svg>
+        </div>
+        <div class="wd-wrap">
+          <span class="wd-val" id="windSpeed">—</span>
+          <span class="wd-unit">м/с</span>
+        </div>
+        <div class="wd-from" id="windFrom">—</div>
+        <div class="wd-gust" id="windGust"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- water -->
+      <div class="col" id="waterCol">
+        <div class="label">Уровень воды</div>
+        <div class="gauge">
+          <div class="tube"><div class="fill" id="waterFill" style="height:0;--c:var(--unknown)"><div class="wave"></div></div></div>
+          <div class="marks">
+            <span>200</span><span>160</span><span>120</span><span>65</span><span>0</span>
+          </div>
+        </div>
+        <div class="wd-wrap">
+          <span class="water-val" id="waterVal">—</span>
+          <span class="water-unit">см</span>
+        </div>
+        <div class="water-status" id="waterStatus" style="--c:var(--unknown)">нет данных</div>
+        <div class="water-station" id="waterStation"></div>
+      </div>
+    </div>
+
+    <!-- chips: air temp, water temp, elagin -->
+    <div class="chips">
+      <button class="chip temp" id="airChip" type="button">
+        <span class="ico">🌡</span>
+        <span>воздух <span class="v" id="airVal">—</span></span>
+      </button>
+      <button class="chip temp" id="waterTempChip" type="button">
+        <span class="ico">💧</span>
+        <span>вода <span class="v" id="waterTempVal">—</span></span>
+      </button>
+      <button class="chip elagin" id="elaginChip" type="button" title="Пост Елагин Остров — точное значение после проверки">
+        <span class="ico">⬢</span>
+        <span>Елагин <span class="v" id="elaginVal">LIVE</span></span>
+      </button>
+    </div>
+
+    <!-- footer -->
+    <div class="foot">
+      <span class="age" id="age">—</span>
+      <span>·</span>
+      <a class="src" id="srcLink" href="https://nord-sup.ru/pogoda" target="_blank" rel="noopener">nord-sup.ru · Горный институт</a>
+    </div>
+
+    <!-- settings modal -->
+    <div class="modal" id="modal">
+      <div class="sheet">
+        <h2>Источник данных</h2>
+        <p>Виджет берёт уровень воды (пост «Горный институт»), температуру воздуха и воды, ветер напрямую из открытого API <code>weather.nord-sup.ru/data</code> (с CORS). Точное значение поста «Елагин Остров» открывается во встроенной странице spbwater.su — на телефоне проверка Cloudflare пройдёт автоматически.</p>
+        <label>Базовый URL данных (необязательно)</label>
+        <input id="apiInput" type="url" placeholder="https://weather.nord-sup.ru/data">
+        <label>Резервный источник ветра (Open-Meteo, координаты)</label>
+        <input id="omInput" type="text" placeholder="59.9343,30.3351">
+        <div class="row">
+          <button class="btn" id="clearBtn">Сбросить</button>
+          <button class="btn primary" id="saveBtn">Сохранить</button>
+        </div>
+        <div class="hint">
+          По умолчанию: <code>weather.nord-sup.ru/data</code> + резерв <code>Open-Meteo</code>.<br>
+          Уровень — пост «Горный институт» (~4 км от Елагина, тот же режим Невской губы). Превышение над ординаром Кронштадтского футштока.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- elagin iframe modal (вне виджета, на весь экран) -->
+  <div class="elagin-modal" id="elaginModal">
+    <div class="elagin-bar">
+      <span class="t">Елагин Остров — точный уровень</span>
+      <button class="icon-btn" id="elaginClose" aria-label="Закрыть" style="background:#0d2940">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <iframe class="elagin-frame" id="elaginFrame" src="about:blank" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+    <div class="elagin-note">Проверка браузера пройдёт автоматически (вы на реальном устройстве). Если появится кнопка «Продолжить» — нажмите её, и точный уровень Елагина отобразится выше.</div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ───────── конфиг ─────────
+  const CONFIG = {
+    dataBase: "https://weather.nord-sup.ru/data",   // CORS ✓, можно переопределить
+    omLat: 59.9343, omLon: 30.3351,                 // резерв: Open-Meteo (ветер/темп)
+    elaginUrl: "https://spbwater.su/waterpost/elagin",
+    refreshMs: 5*60*1000,
+    cacheKey: "spb_widget_v3",
+  };
+
+  // 16 румбов по-русски (откуда дует)
+  const DIRS = ["С","ССВ","СВ","ВСВ","В","ВЮВ","ЮВ","ЮЮВ","Ю","ЮЮЗ","ЮЗ","ЗЮЗ","З","ЗСЗ","СЗ","ССЗ"];
+  function dirLabel(deg){ deg=((deg%360)+360)%360; return DIRS[Math.round(deg/22.5)%16]; }
+
+  // пороги уровня (см над ординаром) — шкала наводнения СПб
+  function levelFromValue(cm){ if(cm==null) return "unknown"; if(cm>=160) return "danger"; if(cm>=65) return "warn"; return "safe"; }
+  const STATUS_COLOR={safe:"var(--safe)",warn:"var(--warn)",danger:"var(--danger)",unknown:"var(--unknown)"};
+  const STATUS_TEXT={safe:"Норма",warn:"Выше нормы",danger:"Опасный",unknown:"нет данных"};
+
+  // ───────── DOM ─────────
+  const $ = id => document.getElementById(id);
+  const arrow=$("arrow"), windSpeed=$("windSpeed"), windFrom=$("windFrom"), windGust=$("windGust");
+  const waterFill=$("waterFill"), waterVal=$("waterVal"), waterStatus=$("waterStatus"), waterStation=$("waterStation");
+  const airVal=$("airVal"), waterTempVal=$("waterTempVal");
+  const liveDot=$("liveDot"), liveText=$("liveText"), age=$("age"), srcLink=$("srcLink");
+  const refreshBtn=$("refreshBtn"), settingsBtn=$("settingsBtn"), modal=$("modal");
+  const apiInput=$("apiInput"), omInput=$("omInput"), saveBtn=$("saveBtn"), clearBtn=$("clearBtn");
+  const elaginChip=$("elaginChip"), elaginModal=$("elaginModal"), elaginFrame=$("elaginFrame"), elaginClose=$("elaginClose");
+
+  // cardinal ticks
+  (function(){
+    let t="";
+    for(let d=0;d<360;d+=10){
+      const rad=(d-90)*Math.PI/180;
+      const r1=52,r2=(d%30===0?44:48);
+      const x1=64+r1*Math.cos(rad),y1=64+r1*Math.sin(rad);
+      const x2=64+r2*Math.cos(rad),y2=64+r2*Math.sin(rad);
+      t+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(255,255,255,${d%90===0?.5:.18})" stroke-width="${d%30===0?1.6:1}"/>`;
+    }
+    $("ticks").innerHTML=t;
+  })();
+
+  // ───────── утилиты ─────────
+  function store(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+  function load(k){ try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;} }
+  function fmtTime(d){ return d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}); }
+  function setBase(){ const qp=new URLSearchParams(location.search).get("base"); if(qp){CONFIG.dataBase=qp;} const ls=load("spb_base"); if(ls){CONFIG.dataBase=ls;} const om=load("spb_om"); if(om){const p=om.split(",");CONFIG.omLat=parseFloat(p[0]);CONFIG.omLon=parseFloat(p[1]);} }
+
+  // ───────── источники данных ─────────
+  async function fetchJson(url){
+    const r=await fetch(url,{cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    return r.json();
+  }
+
+  // уровень воды: nord-sup water_bridges_data.json
+  function parseWater(d){
+    const wl=d && d.waterLevel;
+    if(!wl || wl.levelCm==null) return null;
+    const sources = wl.sourcesChecked || [];
+    const secondary = sources.find(s=>/volgo/i.test(s.source||"")) || sources.find(s=>s!==sources[0]);
+    return {
+      level_cm: wl.levelCm,
+      station: wl.station || "Горный институт",
+      source: (wl.source||"").split("/")[0],
+      measure_time: wl.measureTime || "",
+      measured_ms: wl.measuredAtMs || null,
+      secondary_cm: secondary ? secondary.levelCm : null,
+      secondary_name: secondary ? (secondary.source||"").split("/")[0] : null,
+      fetched_at: new Date().toISOString(),
+    };
+  }
+  // резерв: spbwater.su главная → Горный (через публичный CORS-прокси)
+  async function fetchWaterFallback(){
+    const proxies=[
+      u=>"https://api.allorigins.win/raw?url="+encodeURIComponent(u),
+      u=>"https://api.codetabs.com/v1/proxy/?quest="+encodeURIComponent(u),
+    ];
+    for(const f of proxies){
+      try{
+        const d=await fetchJson(f("https://spbwater.su/"));
+        const txt=typeof d==="string"?d:(d&&d.contents?d.contents:JSON.stringify(d));
+        const m=txt.match(/aria-label="Пост:\s*Горный[^"]*"[^]*?post-card__value[^>]*>\s*(\d{1,4})\s*</);
+        if(m) return {level_cm:parseInt(m[1],10),station:"Горный институт",source:"spbwater.su",measure_time:"",fetched_at:new Date().toISOString(),_fallback:true};
+      }catch(e){}
+    }
+    return null;
+  }
+
+  // погода: nord-sup weather_openmeteo_data.json (нефа=центр СПб)
+  function parseWeather(d){
+    const n=d && d.neva && d.neva.current;
+    if(!n) return null;
+    return {
+      temp: n.temp, wind: n.wind, gust: n.gust, windDir: n.windDir,
+      summary: n.summary || "", time: n.time || "",
+      wave: (d.marine && d.marine.wave) ? d.marine.wave.height : null,
+      fetched_at: new Date().toISOString(),
+    };
+  }
+  // резерв: Open-Meteo (ветер + темп)
+  async function fetchWeatherFallback(){
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${CONFIG.omLat}&longitude=${CONFIG.omLon}&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m&timezone=Europe/Moscow&forecast_days=1`;
+    const d=await fetchJson(url);
+    const c=d.current;
+    // Open-Meteo: wind_speed в км/ч → м/с
+    return {temp:c.temperature_2m, wind:c.wind_speed_10m/3.6, gust:c.wind_gusts_10m/3.6, windDir:c.wind_direction_10m, summary:"", time:"", fetched_at:new Date().toISOString(), _fallback:true};
+  }
+
+  // темп. воды: nord-sup water_temp_data.json
+  function parseWaterTemp(d){ const t=d&&d.waterTemp; return t?t.current:null; }
+
+  // ───────── рендер ─────────
+  function renderWind(w){
+    if(!w){ windSpeed.textContent="—"; return; }
+    const deg=w.windDir;
+    // стрелка = куда дует (откуда +180)
+    const flow=((deg+180)%360);
+    arrow.setAttribute("transform",`rotate(${flow.toFixed(1)} 64 64)`);
+    windSpeed.textContent = (w.wind!=null)?Number(w.wind).toFixed(1):"—";
+    windFrom.textContent = (w.windDir!=null)?("ветер с "+dirLabel(deg)):"";
+    windGust.textContent = (w.gust!=null)?("порывы до "+Number(w.gust).toFixed(1)+" м/с"):"";
+  }
+  function renderWater(d){
+    const cm=d.level_cm;
+    const lvl=levelFromValue(cm);
+    const color=STATUS_COLOR[lvl];
+    waterFill.style.setProperty("--c",color);
+    const pct = cm!=null ? Math.min(100,(cm/200*100)) : 0;
+    waterFill.style.height=pct.toFixed(1)+"%";
+    waterVal.textContent = cm!=null?cm:"—";
+    waterStatus.textContent = STATUS_TEXT[lvl];
+    waterStatus.style.setProperty("--c",color);
+    let st = d.station||"";
+    if(d.secondary_cm!=null) st += " · "+(d.secondary_name||"Волго-Балт")+" "+d.secondary_cm+" см";
+    if(d.measure_time) st += " · "+d.measure_time;
+    waterStation.textContent = st;
+    srcLink.textContent = (d.source||"nord-sup")+" · Горный институт";
+    if(d._fallback) srcLink.textContent = "spbwater.su · Горный (резерв)";
+  }
+  function renderWeather(w){
+    if(!w) return;
+    if(w.temp!=null) airVal.textContent = (w.temp>0?"+":"")+Number(w.temp).toFixed(0)+"°";
+  }
+  function setAge(ts){ if(!ts){age.textContent="—";return;} const d=new Date(ts); age.textContent="обновлено "+fmtTime(d); }
+
+  // ───────── основной цикл ─────────
+  let busy=false;
+  async function update(manual){
+    if(busy) return; busy=true;
+    if(manual) refreshBtn.classList.add("spin");
+    try{
+      const base=CONFIG.dataBase.replace(/\/$/,"");
+      const [wbR, wtR, wmR] = await Promise.allSettled([
+        fetchJson(base+"/water_bridges_data.json"),
+        fetchJson(base+"/water_temp_data.json"),
+        fetchJson(base+"/weather_openmeteo_data.json"),
+      ]);
+      let water = wbR.status==="fulfilled"?parseWater(wbR.value):null;
+      let wtemp = wtR.status==="fulfilled"?parseWaterTemp(wtR.value):null;
+      let weather = wmR.status==="fulfilled"?parseWeather(wmR.value):null;
+
+      // резервы
+      if(!water){ water=await fetchWaterFallback(); }
+      if(!weather){ weather=await fetchWeatherFallback(); }
+
+      if(water){ store(CONFIG.cacheKey,{water,weather,wtemp,t:Date.now()}); renderWater(water); }
+      if(weather){ renderWind(weather); renderWeather(weather); }
+      if(wtemp!=null) waterTempVal.textContent=(wtemp>0?"+":"")+Number(wtemp).toFixed(0)+"°";
+      setAge(Date.now());
+
+      if(water && weather){
+        liveDot.classList.remove("off");
+        liveText.textContent = weather.summary?("данные в реальном времени · "+weather.summary):"данные в реальном времени";
+      } else {
+        liveDot.classList.add("off");
+        liveText.textContent = "часть источников недоступна — показан кэш";
+      }
+    }catch(e){ console.warn("update failed",e); liveText.textContent="ошибка получения данных"; liveDot.classList.add("off"); }
+    finally{ busy=false; if(manual) refreshBtn.classList.remove("spin"); }
+  }
+
+  // автообновление
+  setInterval(()=>update(false),CONFIG.refreshMs);
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden) update(false); });
+
+  // начальный рендер из кэша + загрузка
+  setBase();
+  const c=load(CONFIG.cacheKey);
+  if(c){ if(c.water) renderWater(c.water); if(c.weather){ renderWind(c.weather); renderWeather(c.weather);} if(c.wtemp!=null) waterTempVal.textContent=(c.wtemp>0?"+":"")+Number(c.wtemp).toFixed(0)+"°"; }
+  update(false);
+
+  // ───────── события ─────────
+  refreshBtn.addEventListener("click",()=>update(true));
+  settingsBtn.addEventListener("click",()=>{
+    apiInput.value=CONFIG.dataBase;
+    omInput.value=CONFIG.omLat+","+CONFIG.omLon;
+    modal.classList.add("show");
+  });
+  modal.addEventListener("click",e=>{ if(e.target===modal) modal.classList.remove("show"); });
+  saveBtn.addEventListener("click",()=>{
+    const v=apiInput.value.trim(); if(v) store("spb_base",v);
+    const om=omInput.value.trim(); if(om) store("spb_om",om);
+    modal.classList.remove("show"); location.reload();
+  });
+  clearBtn.addEventListener("click",()=>{
+    try{localStorage.removeItem("spb_base");localStorage.removeItem("spb_om");}catch(e){}
+    apiInput.value=CONFIG.dataBase; omInput.value=CONFIG.omLat+","+CONFIG.omLon;
+  });
+
+  // Елагин: открыть iframe
+  elaginChip.addEventListener("click",()=>{
+    elaginFrame.src=CONFIG.elaginUrl;
+    elaginModal.classList.add("show");
+  });
+  elaginClose.addEventListener("click",()=>{ elaginModal.classList.remove("show"); elaginFrame.src="about:blank"; });
+  elaginModal.addEventListener("click",e=>{ if(e.target===elaginModal){ elaginModal.classList.remove("show"); elaginFrame.src="about:blank"; } });
+})();
+</script>
+</body>
+</html>
