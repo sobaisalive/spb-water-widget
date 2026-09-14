@@ -80,6 +80,7 @@
   .wd-wrap{display:flex;align-items:baseline;gap:5px;margin-top:6px}
   .wd-val{font-size:26px;font-weight:800;letter-spacing:-.5px}
   .wd-unit{font-size:12px;color:var(--muted);font-weight:600}
+  .wd-kmh{font-size:12px;color:var(--muted);font-weight:600;margin-top:1px}
   .wd-from{font-size:12px;color:var(--accent);font-weight:700;letter-spacing:.3px}
   .wd-gust{font-size:11px;color:var(--dim);margin-top:3px}
 
@@ -208,6 +209,7 @@
           <span class="wd-val" id="windSpeed">—</span>
           <span class="wd-unit">м/с</span>
         </div>
+        <div class="wd-kmh" id="windKmh"></div>
         <div class="wd-from" id="windFrom">—</div>
         <div class="wd-gust" id="windGust"></div>
       </div>
@@ -242,7 +244,7 @@
         <span class="ico">💧</span>
         <span>вода <span class="v" id="waterTempVal">—</span></span>
       </button>
-      <button class="chip elagin" id="elaginChip" type="button" title="Пост Елагин Остров — точное значение после проверки">
+      <button class="chip elagin" id="elaginChip" type="button" title="Откроет spbwater.su в новой вкладке — пройдите проверку браузера и увидите точный уровень Елагина">
         <span class="ico">⬢</span>
         <span>Елагин <span class="v" id="elaginVal">LIVE</span></span>
       </button>
@@ -259,7 +261,7 @@
     <div class="modal" id="modal">
       <div class="sheet">
         <h2>Источник данных</h2>
-        <p>Виджет берёт уровень воды (пост «Горный институт»), температуру воздуха и воды, ветер напрямую из открытого API <code>weather.nord-sup.ru/data</code> (с CORS). Точное значение поста «Елагин Остров» открывается во встроенной странице spbwater.su — на телефоне проверка Cloudflare пройдёт автоматически.</p>
+        <p>Виджет берёт уровень воды (пост «Горный институт»), температуру воздуха и воды, ветер напрямую из открытого API <code>weather.nord-sup.ru/data</code> (с CORS). Чип «Елагин» открывает сайт spbwater.su в новой вкладке — проверка Cloudflare проходит автоматически на реальном телефоне, и вы видите точный уровень.</p>
         <label>Базовый URL данных (необязательно)</label>
         <input id="apiInput" type="url" placeholder="https://weather.nord-sup.ru/data">
         <label>Резервный источник ветра (Open-Meteo, координаты)</label>
@@ -312,7 +314,7 @@
 
   // ───────── DOM ─────────
   const $ = id => document.getElementById(id);
-  const arrow=$("arrow"), windSpeed=$("windSpeed"), windFrom=$("windFrom"), windGust=$("windGust");
+  const arrow=$("arrow"), windSpeed=$("windSpeed"), windKmh=$("windKmh"), windFrom=$("windFrom"), windGust=$("windGust");
   const waterFill=$("waterFill"), waterVal=$("waterVal"), waterStatus=$("waterStatus"), waterStation=$("waterStation");
   const airVal=$("airVal"), waterTempVal=$("waterTempVal");
   const liveDot=$("liveDot"), liveText=$("liveText"), age=$("age"), srcLink=$("srcLink");
@@ -405,14 +407,16 @@
 
   // ───────── рендер ─────────
   function renderWind(w){
-    if(!w){ windSpeed.textContent="—"; return; }
+    if(!w){ windSpeed.textContent="—"; windKmh.textContent=""; windFrom.textContent=""; windGust.textContent=""; return; }
     const deg=w.windDir;
     // стрелка = куда дует (откуда +180)
     const flow=((deg+180)%360);
     arrow.setAttribute("transform",`rotate(${flow.toFixed(1)} 64 64)`);
-    windSpeed.textContent = (w.wind!=null)?Number(w.wind).toFixed(1):"—";
+    if(w.wind!=null){ const ms=Number(w.wind); windSpeed.textContent=ms.toFixed(1); windKmh.textContent=(ms*3.6).toFixed(1)+" км/ч"; }
+    else { windSpeed.textContent="—"; windKmh.textContent=""; }
     windFrom.textContent = (w.windDir!=null)?("ветер с "+dirLabel(deg)):"";
-    windGust.textContent = (w.gust!=null)?("порывы до "+Number(w.gust).toFixed(1)+" м/с"):"";
+    if(w.gust!=null){ const g=Number(w.gust); windGust.textContent="порывы до "+g.toFixed(1)+" м/с · "+(g*3.6).toFixed(1)+" км/ч"; }
+    else { windGust.textContent=""; }
   }
   function renderWater(d){
     const cm=d.level_cm;
@@ -501,13 +505,10 @@
     apiInput.value=CONFIG.dataBase; omInput.value=CONFIG.omLat+","+CONFIG.omLon;
   });
 
-  // Елагин: открыть iframe
+  // Елагин: открыть сайт в новой вкладке — Turnstile проходит в обычной вкладке (не в iframe)
   elaginChip.addEventListener("click",()=>{
-    elaginFrame.src=CONFIG.elaginUrl;
-    elaginModal.classList.add("show");
+    window.open(CONFIG.elaginUrl, "_blank", "noopener,noreferrer");
   });
-  elaginClose.addEventListener("click",()=>{ elaginModal.classList.remove("show"); elaginFrame.src="about:blank"; });
-  elaginModal.addEventListener("click",e=>{ if(e.target===elaginModal){ elaginModal.classList.remove("show"); elaginFrame.src="about:blank"; } });
 })();
 </script>
 </body>
