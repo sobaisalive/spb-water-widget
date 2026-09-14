@@ -190,14 +190,28 @@
                 <stop offset="0" stop-color="#7dd3fc"/>
                 <stop offset="1" stop-color="#0ea5e9"/>
               </linearGradient>
+              <clipPath id="mapClip"><circle cx="64" cy="64" r="57"/></clipPath>
             </defs>
             <circle cx="64" cy="64" r="58" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.14)"/>
-            <circle cx="64" cy="64" r="46" fill="none" stroke="rgba(255,255,255,.06)"/>
+            <g clip-path="url(#mapClip)" id="mapBg">
+              <!-- Финский залив / Невская губа (запад, слева) -->
+              <path d="M8 8 H46 Q42 30 32 40 Q20 50 8 46 Z" fill="rgba(56,189,248,.16)"/>
+              <path d="M8 8 H46 Q42 30 32 40 Q20 50 8 46 Z" fill="none" stroke="rgba(125,211,252,.30)" stroke-width=".7"/>
+              <!-- Нева: с востока (справа) в залив (слева), с изгибами -->
+              <path d="M120 60 C104 54 96 66 86 60 C76 54 70 64 60 58 C50 52 40 62 30 54 C22 48 16 52 12 48"
+                    fill="none" stroke="rgba(125,211,252,.32)" stroke-width="5" stroke-linecap="round"/>
+              <!-- острова: Васильевский (к заливу), Петроградская (к северу) -->
+              <ellipse cx="50" cy="60" rx="9" ry="4.5" fill="rgba(255,255,255,.055)" stroke="rgba(255,255,255,.12)" stroke-width=".5"/>
+              <ellipse cx="66" cy="50" rx="6.5" ry="3.6" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.10)" stroke-width=".5"/>
+              <!-- центр города -->
+              <circle cx="74" cy="66" r="2.7" fill="#fbbf24" stroke="rgba(0,0,0,.3)" stroke-width=".5"/>
+              <text x="79" y="64" font-size="6.5" fill="#9cc0d8" font-weight="700">центр</text>
+            </g>
             <g id="ticks"></g>
-            <text x="64" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="#9cc0d8">С</text>
-            <text x="64" y="120" text-anchor="middle" font-size="11" font-weight="700" fill="#6f93a8">Ю</text>
-            <text x="118" y="68" text-anchor="middle" font-size="11" font-weight="700" fill="#6f93a8">В</text>
-            <text x="10" y="68" text-anchor="middle" font-size="11" font-weight="700" fill="#6f93a8">З</text>
+            <text x="64" y="15" text-anchor="middle" font-size="9" font-weight="700" fill="#9cc0d8">С</text>
+            <text x="64" y="122" text-anchor="middle" font-size="8" font-weight="600" fill="#6f93a8">Ю</text>
+            <text x="120" y="68" text-anchor="middle" font-size="8" font-weight="600" fill="#6f93a8">В</text>
+            <text x="8" y="68" text-anchor="middle" font-size="8" font-weight="600" fill="#6f93a8">З</text>
             <g id="arrow" transform="rotate(0 64 64)">
               <path d="M64 24 L57 66 L64 60 L71 66 Z" fill="url(#arrGrad)" stroke="rgba(255,255,255,.4)" stroke-width="1"/>
               <line x1="64" y1="60" x2="64" y2="104" stroke="rgba(125,211,252,.5)" stroke-width="2" stroke-dasharray="3 3"/>
@@ -261,17 +275,17 @@
     <div class="modal" id="modal">
       <div class="sheet">
         <h2>Источник данных</h2>
-        <p>Виджет берёт уровень воды (пост «Горный институт»), температуру воздуха и воды, ветер напрямую из открытого API <code>weather.nord-sup.ru/data</code> (с CORS). Чип «Елагин» открывает сайт spbwater.su в новой вкладке — проверка Cloudflare проходит автоматически на реальном телефоне, и вы видите точный уровень.</p>
+        <p>Уровень воды (Горный институт) и температуру воды берём из <code>weather.nord-sup.ru</code>, температуру воздуха — из nord-sup «Нева», а <b>ветер — из Open-Meteo (Пулково)</b>, что ближе к наблюдениям и Яндекс.Погоде. Чип «Елагин» открывает spbwater.su в новой вкладке — проверка проходит на реальном телефоне.</p>
         <label>Базовый URL данных (необязательно)</label>
         <input id="apiInput" type="url" placeholder="https://weather.nord-sup.ru/data">
-        <label>Резервный источник ветра (Open-Meteo, координаты)</label>
-        <input id="omInput" type="text" placeholder="59.9343,30.3351">
+        <label>Источник ветра (Open-Meteo, координаты)</label>
+        <input id="omInput" type="text" placeholder="59.80,30.26 (Пулково)">
         <div class="row">
           <button class="btn" id="clearBtn">Сбросить</button>
           <button class="btn primary" id="saveBtn">Сохранить</button>
         </div>
         <div class="hint">
-          По умолчанию: <code>weather.nord-sup.ru/data</code> + резерв <code>Open-Meteo</code>.<br>
+          Уровень/темп. воды: <code>nord-sup.ru</code>. Ветер: <code>Open-Meteo</code> (Пулково).<br>
           Уровень — пост «Горный институт» (~4 км от Елагина, тот же режим Невской губы). Превышение над ординаром Кронштадтского футштока.
         </div>
       </div>
@@ -297,7 +311,7 @@
   // ───────── конфиг ─────────
   const CONFIG = {
     dataBase: "https://weather.nord-sup.ru/data",   // CORS ✓, можно переопределить
-    omLat: 59.9343, omLon: 30.3351,                 // резерв: Open-Meteo (ветер/темп)
+    omLat: 59.80, omLon: 30.26,                     // ветер: Open-Meteo Пулково (≈ Яндекс.Погода)
     elaginUrl: "https://spbwater.su/waterpost/elagin",
     refreshMs: 5*60*1000,
     cacheKey: "spb_widget_v3",
@@ -382,7 +396,7 @@
     return null;
   }
 
-  // погода: nord-sup weather_openmeteo_data.json (нефа=центр СПб)
+  // погода из nord-sup: темп/сводка/волна (точка «Нева»); ветер тут — резерв
   function parseWeather(d){
     const n=d && d.neva && d.neva.current;
     if(!n) return null;
@@ -393,12 +407,18 @@
       fetched_at: new Date().toISOString(),
     };
   }
-  // резерв: Open-Meteo (ветер + темп)
+  // ветер: Open-Meteo Пулково (ближе к наблюдениям / Яндекс.Погоде, чем акватория)
+  async function fetchWindOpenMeteo(){
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${CONFIG.omLat}&longitude=${CONFIG.omLon}&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m&timezone=Europe/Moscow&forecast_days=1`;
+    const d=await fetchJson(url);
+    const c=d.current;
+    return { wind:c.wind_speed_10m/3.6, gust:c.wind_gusts_10m/3.6, windDir:c.wind_direction_10m };
+  }
+  // глубокий резерв: Open-Meteo (ветер + темп), если nord-sup совсем недоступен
   async function fetchWeatherFallback(){
     const url=`https://api.open-meteo.com/v1/forecast?latitude=${CONFIG.omLat}&longitude=${CONFIG.omLon}&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m&timezone=Europe/Moscow&forecast_days=1`;
     const d=await fetchJson(url);
     const c=d.current;
-    // Open-Meteo: wind_speed в км/ч → м/с
     return {temp:c.temperature_2m, wind:c.wind_speed_10m/3.6, gust:c.wind_gusts_10m/3.6, windDir:c.wind_direction_10m, summary:"", time:"", fetched_at:new Date().toISOString(), _fallback:true};
   }
 
@@ -448,14 +468,20 @@
     if(manual) refreshBtn.classList.add("spin");
     try{
       const base=CONFIG.dataBase.replace(/\/$/,"");
-      const [wbR, wtR, wmR] = await Promise.allSettled([
+      const [wbR, wtR, wmR, omR] = await Promise.allSettled([
         fetchJson(base+"/water_bridges_data.json"),
         fetchJson(base+"/water_temp_data.json"),
         fetchJson(base+"/weather_openmeteo_data.json"),
+        fetchWindOpenMeteo(),
       ]);
       let water = wbR.status==="fulfilled"?parseWater(wbR.value):null;
       let wtemp = wtR.status==="fulfilled"?parseWaterTemp(wtR.value):null;
       let weather = wmR.status==="fulfilled"?parseWeather(wmR.value):null;
+      const windOm = omR.status==="fulfilled"?omR.value:null;
+
+      // ветер — приоритет Open-Meteo (Пулково, ≈ Яндекс); резерв — nord-sup «Нева»
+      if(weather && windOm){ weather.wind=windOm.wind; weather.gust=windOm.gust; weather.windDir=windOm.windDir; weather.windSrc="Open-Meteo · Пулково"; }
+      else if(!weather && windOm){ weather={temp:null,wind:windOm.wind,gust:windOm.gust,windDir:windOm.windDir,summary:"",time:"",wave:null,fetched_at:new Date().toISOString()}; }
 
       // резервы
       if(!water){ water=await fetchWaterFallback(); }
